@@ -69,7 +69,7 @@ fi
 
 # Use pikman if available, otherwise use apt
 if command -v pikman &>/dev/null; then
-    PKG_MANAGER="sudo pikman install -y"
+    PKG_MANAGER="pikman install -y"  # Fixed: removed sudo for pikman
     echo "Using pikman for package installation."
 elif command -v apt &>/dev/null; then
     PKG_MANAGER="sudo apt install -y"
@@ -81,7 +81,11 @@ fi
 
 # Update package lists
 echo "Updating package lists..."
-sudo apt update
+if command -v pikman &>/dev/null; then
+    pikman update  # pikman doesn't need sudo for update
+else
+    sudo apt update
+fi
 
 # Install required system packages
 echo "Installing required system packages..."
@@ -127,9 +131,9 @@ else
     git clone --depth=1 https://github.com/hyprwm/hyprsunset.git "$HYPRSUNSET_DIR"
 fi
 
-# Build and install Hyprsunset
+# Build and install Hyprsunset - FIXED MESON COMMAND
 cd "$HYPRSUNSET_DIR"
-meson --prefix=/usr build
+meson setup --prefix=/usr build .  # Fixed: added 'setup' and source directory '.'
 sudo ninja -C build install
 
 echo "Hyprsunset has been installed from source."
@@ -149,7 +153,7 @@ fi
 
 # Build and install Gray
 cd "$GRAY_DIR"
-meson --prefix=/usr build
+meson setup --prefix=/usr build .  # Fixed: added 'setup' and source directory '.'
 sudo ninja -C build install
 
 echo "Gray has been installed from source."
