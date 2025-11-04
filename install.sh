@@ -5,6 +5,7 @@ set -o pipefail  # Prevent errors in a pipeline from being masked
 
 REPO_URL="https://github.com/Ackerman-00/Ax-Shell-Quiet.git"
 INSTALL_DIR="$HOME/.config/Ax-Shell"
+VENV_DIR="$HOME/.ax-shell-venv"
 
 echo "Starting Ax-Shell installation for PikaOS..."
 echo "=============================================="
@@ -12,6 +13,11 @@ echo "=============================================="
 # Update package lists
 echo "Updating package lists..."
 sudo apt update
+
+# Remove conflicting system packages that might cause issues
+echo "Cleaning up conflicting packages..."
+sudo apt remove -y python3-fabric fabric 2>/dev/null || true
+sudo apt autoremove -y
 
 # Install essential packages from PikaOS repos
 echo "Installing required packages..."
@@ -41,7 +47,38 @@ sudo apt install -y \
 
 # Create necessary directories
 echo "Creating necessary directories..."
-mkdir -p "$HOME/.local/bin" "$HOME/.local/share/fonts"
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/fonts" "$HOME/.local/src"
+
+# Setup Python virtual environment properly
+echo "Setting up Python virtual environment..."
+if [ -d "$VENV_DIR" ]; then
+    echo "Updating existing virtual environment..."
+    rm -rf "$VENV_DIR"
+fi
+
+python3 -m venv "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
+
+# Upgrade pip and install required Python packages in venv
+echo "Installing Python dependencies in virtual environment..."
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install \
+    pillow \
+    psutil \
+    requests \
+    watchdog \
+    ijson \
+    toml \
+    setproctitle \
+    pywayland \
+    loguru \
+    click \
+    cffi \
+    pycparser
+
+# Install Fabric GUI framework in virtual environment
+echo "Installing Fabric GUI framework..."
+"$VENV_DIR/bin/pip" install git+https://github.com/Fabric-Development/fabric.git
 
 # Clone or update the repository
 if [ -d "$INSTALL_DIR" ]; then
@@ -51,10 +88,6 @@ else
     echo "Cloning Ax-Shell..."
     git clone --depth=1 "$REPO_URL" "$INSTALL_DIR"
 fi
-
-# Install Fabric GUI framework via pip (the correct one for Ax-Shell)
-echo "Installing Fabric GUI framework..."
-pip install git+https://github.com/Fabric-Development/fabric.git
 
 # Install Hyprshot (simple copy)
 echo "Installing Hyprshot..."
@@ -134,24 +167,42 @@ if ! grep -q "\.local/bin" "$HOME/.bashrc"; then
 fi
 export PATH="$HOME/.local/bin:$PATH"
 
-# Create a simple wrapper script for Ax-Shell
+# Create a smart wrapper script for Ax-Shell that uses the virtual environment
 echo "Creating Ax-Shell launcher..."
 cat > "$HOME/.local/bin/ax-shell" << EOF
 #!/bin/bash
+# Activate virtual environment and run Ax-Shell
+source "$VENV_DIR/bin/activate"
 cd "$INSTALL_DIR"
-python3 main.py "\$@"
+python main.py "\$@"
 EOF
 chmod +x "$HOME/.local/bin/ax-shell"
+
+# Create a direct Python launcher as backup
+cat > "$HOME/.local/bin/ax-shell-direct" << EOF
+#!/bin/bash
+"$VENV_DIR/bin/python" "$INSTALL_DIR/main.py" "\$@"
+EOF
+chmod +x "$HOME/.local/bin/ax-shell-direct"
+
+# Test the installation before running
+echo "Testing installation..."
+if "$VENV_DIR/bin/python" -c "import fabric, gi; gi.require_version('Cvc', '1.0'); print('✅ All imports successful')"; then
+    echo "✅ Environment test passed"
+else
+    echo "❌ Environment test failed"
+    exit 1
+fi
 
 # Run configuration
 echo "Running Ax-Shell configuration..."
 cd "$INSTALL_DIR"
-python3 config/config.py
+"$VENV_DIR/bin/python" config/config.py
 
 # Start Ax-Shell
 echo "Starting Ax-Shell..."
 pkill -f "ax-shell" 2>/dev/null || true
-python3 "$INSTALL_DIR/main.py" > /dev/null 2>&1 &
+"$VENV_DIR/bin/python" "$INSTALL_DIR/main.py" > /dev/null 2>&1 &
 disown
 
 echo ""
@@ -163,12 +214,20 @@ echo "Ax-Shell is now running!"
 echo ""
 echo "📍 Important locations:"
 echo "   Config: $INSTALL_DIR"
+echo "   Virtual Env: $VENV_DIR"
 echo "   Local Bin: $HOME/.local/bin"
 echo "   Fonts: $HOME/.local/share/fonts"
 echo ""
 echo "🚀 Quick start:"
 echo "   Restart terminal or run: source ~/.bashrc"
-echo "   Start manually: ax-shell"
-echo "   Or: python3 $INSTALL_DIR/main.py"
+echo "   Start normally: ax-shell"
+echo "   Direct start: ax-shell-direct"
+echo "   Manual start: $VENV_DIR/bin/python $INSTALL_DIR/main.py"
+echo ""
+echo "🔧 Smart features:"
+echo "   - Virtual environment prevents system conflicts"
+echo "   - Automatic dependency management"
+echo "   - Multiple launch options"
+echo "   - Pre-flight testing"
 echo ""
 echo "=============================================="
