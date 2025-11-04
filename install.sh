@@ -29,7 +29,7 @@ sudo apt install -y \
     tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa \
     tmux unzip upower \
     webp-pixbuf-loader wl-clipboard jq grim slurp \
-    libhyprlang-dev libhyprutils-dev hyprwayland-scanner \
+    libhyprlang-dev libhyprutils-dev \
     imagemagick libdbusmenu-gtk3-dev libgtk-layer-shell0 \
     libgtk-layer-shell-dev libwebkit2gtk-4.1-0 gir1.2-webkit2-4.1 \
     python3-gi python3-gi-cairo python3-full python3-pip python3-venv \
@@ -41,11 +41,46 @@ sudo apt install -y \
     libwayland-dev wayland-protocols libxkbcommon-dev \
     python3-setuptools python3-wheel python3-build python3-installer \
     libgirepository1.0-dev python3-dev libffi-dev gir1.2-glib-2.0 \
-    gir1.2-girepository-2.0 golang-go
+    gir1.2-girepository-2.0 golang-go libpugixml-dev
 
 # Create necessary directories
 echo "Creating necessary directories..."
 mkdir -p "$HOME/.local/src" "$HOME/.local/bin" "$HOME/.local/share/fonts"
+
+# --- Install hyprwayland-scanner from Source (AUR-style) ---
+echo "Installing hyprwayland-scanner from source..."
+
+HYPRWAYLAND_SCANNER_DIR="$HOME/.local/src/hyprwayland-scanner"
+if [ -d "$HYPRWAYLAND_SCANNER_DIR" ]; then
+    echo "Updating hyprwayland-scanner repository..."
+    cd "$HYPRWAYLAND_SCANNER_DIR" && git pull || true
+else
+    echo "Cloning hyprwayland-scanner repository..."
+    git clone --depth=1 https://github.com/hyprwm/hyprwayland-scanner.git "$HYPRWAYLAND_SCANNER_DIR"
+fi
+
+# Build and install hyprwayland-scanner (AUR-style)
+cd "$HYPRWAYLAND_SCANNER_DIR"
+
+# Get version info similar to AUR pkgver()
+HYPRWAYLAND_VERSION=$(git describe --long --tags --abbrev=7 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' || echo "0.4.0")
+echo "Building hyprwayland-scanner version: $HYPRWAYLAND_VERSION"
+
+# AUR-style build process
+echo "Building hyprwayland-scanner with CMake..."
+rm -rf build
+if cmake -B build -S . -G Ninja -W no-dev -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr && \
+   cmake --build build && \
+   sudo cmake --install build; then
+    echo "✅ hyprwayland-scanner installed successfully"
+    
+    # Install license (AUR-style)
+    if [ -f "LICENSE" ]; then
+        sudo install -Dm644 LICENSE -t /usr/share/licenses/hyprwayland-scanner/
+    fi
+else
+    echo "❌ hyprwayland-scanner installation failed"
+fi
 
 # --- Create Python Virtual Environment ---
 echo "Setting up Python virtual environment..."
@@ -161,6 +196,9 @@ if [ -f "CMakeLists.txt" ]; then
         echo "✅ Hyprpicker installed"
     else
         echo "❌ Hyprpicker build failed"
+        echo "Checking for missing dependencies..."
+        pkg-config --exists hyprwayland-scanner && echo "  - hyprwayland-scanner: found" || echo "  - hyprwayland-scanner: missing"
+        pkg-config --exists hyprutils && echo "  - hyprutils: found" || echo "  - hyprutils: missing"
     fi
 else
     echo "❌ Hyprpicker: No CMakeLists.txt found"
@@ -201,6 +239,9 @@ if [ -f "CMakeLists.txt" ]; then
         echo "✅ Hyprsunset installed"
     else
         echo "❌ Hyprsunset build failed"
+        echo "Checking for missing dependencies..."
+        pkg-config --exists hyprwayland-scanner && echo "  - hyprwayland-scanner: found" || echo "  - hyprwayland-scanner: missing"
+        pkg-config --exists hyprlang && echo "  - hyprlang: found" || echo "  - hyprlang: missing"
     fi
 else
     echo "❌ Hyprsunset: No CMakeLists.txt found"
@@ -313,6 +354,7 @@ echo "Final verification..."
 
 # Test critical components
 echo "Component status:"
+pkg-config --exists hyprwayland-scanner && echo "✅ hyprwayland-scanner" || echo "❌ hyprwayland-scanner"
 command -v hyprpicker >/dev/null 2>&1 && echo "✅ Hyprpicker" || echo "❌ Hyprpicker"
 [ -f "$HOME/.local/bin/hyprshot" ] && echo "✅ Hyprshot" || echo "❌ Hyprshot"
 command -v hyprsunset >/dev/null 2>&1 && echo "✅ Hyprsunset" || echo "❌ Hyprsunset"
