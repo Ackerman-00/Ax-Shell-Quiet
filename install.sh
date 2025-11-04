@@ -64,8 +64,9 @@ PYTHON_PACKAGES=(
     python3-watchdog
 )
 
-# Build dependencies
+# Build dependencies - expanded with missing packages
 BUILD_PACKAGES=(
+    build-essential
     cmake
     gcc
     g++
@@ -79,6 +80,10 @@ BUILD_PACKAGES=(
     libcairo2-dev
     libpango1.0-dev
     libjpeg-dev
+    # Additional dependencies for specific tools
+    valac
+    libjson-glib-dev
+    libgtk-3-dev
 )
 
 # Prevent running as root
@@ -148,15 +153,23 @@ else
     git clone --depth=1 https://github.com/hyprwm/hyprpicker.git "$HYPRPICKER_DIR"
 fi
 
-# Build and install Hyprpicker using the project's build system
+# Build and install Hyprpicker - it uses CMake
 cd "$HYPRPICKER_DIR"
-if [ -f "Makefile" ]; then
-    echo "Building Hyprpicker with make..."
-    make && sudo make install || {
-        echo "Warning: Hyprpicker build/install failed, continuing..."
+if [ -f "CMakeLists.txt" ]; then
+    echo "Building Hyprpicker with CMake..."
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+    sudo cmake --install build || {
+        echo "Warning: Hyprpicker installation failed, trying manual copy..."
+        sudo cp build/hyprpicker /usr/local/bin/ || echo "Manual copy also failed"
     }
 else
-    echo "No Makefile found for Hyprpicker"
+    echo "No CMakeLists.txt found for Hyprpicker"
+    # Try alternative build methods
+    if [ -f "make.sh" ]; then
+        echo "Trying make.sh..."
+        chmod +x make.sh && ./make.sh && sudo cp hyprpicker /usr/local/bin/ || echo "make.sh failed"
+    fi
 fi
 
 echo "Hyprpicker installation attempted."
@@ -176,7 +189,8 @@ fi
 # AUR-style installation - just copy the script and make it executable
 echo "Installing Hyprshot script..."
 mkdir -p "$HOME/.local/bin"
-install -Dm755 "$HYPRSHOT_DIR/hyprshot" "$HOME/.local/bin/hyprshot"
+cp "$HYPRSHOT_DIR/hyprshot" "$HOME/.local/bin/hyprshot"
+chmod +x "$HOME/.local/bin/hyprshot"
 
 echo "Hyprshot has been installed to $HOME/.local/bin/hyprshot"
 
@@ -192,16 +206,33 @@ else
     git clone --depth=1 https://github.com/hyprwm/hyprsunset.git "$HYPRSUNSET_DIR"
 fi
 
-# Build and install Hyprsunset
+# Build and install Hyprsunset - check for proper structure
 cd "$HYPRSUNSET_DIR"
 if [ -f "meson.build" ]; then
+    echo "Building Hyprsunset with meson..."
     meson setup build --buildtype=release && \
     ninja -C build && \
     sudo ninja -C build install || {
         echo "Warning: Hyprsunset build/install failed, continuing..."
     }
+elif [ -f "CMakeLists.txt" ]; then
+    echo "Building Hyprsunset with CMake..."
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+    sudo cmake --install build || echo "CMake installation failed"
 else
-    echo "No meson.build found for Hyprsunset"
+    echo "Checking for alternative build structure..."
+    # Try to find build files in subdirectories
+    if find . -name "meson.build" | head -n1 | grep -q "."; then
+        BUILD_SUBDIR=$(find . -name "meson.build" -printf '%h\n' | head -n1)
+        echo "Found meson.build in subdirectory: $BUILD_SUBDIR"
+        cd "$BUILD_SUBDIR"
+        meson setup build --buildtype=release && \
+        ninja -C build && \
+        sudo ninja -C build install || echo "Subdirectory build failed"
+    else
+        echo "No build system found for Hyprsunset"
+    fi
 fi
 
 echo "Hyprsunset installation attempted."
@@ -218,9 +249,10 @@ else
     git clone --depth=1 https://github.com/Fabric-Development/gray.git "$GRAY_DIR"
 fi
 
-# Build and install Gray
+# Build and install Gray - now with Vala compiler available
 cd "$GRAY_DIR"
 if [ -f "meson.build" ]; then
+    echo "Building Gray with meson (Vala support)..."
     meson setup build --prefix=/usr --buildtype=release && \
     ninja -C build && \
     sudo ninja -C build install || {
