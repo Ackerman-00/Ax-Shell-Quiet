@@ -37,7 +37,7 @@ sudo apt install -y \
     python3-setuptools python3-wheel python3-build python3-installer \
     libgirepository1.0-dev python3-dev libffi-dev gir1.2-glib-2.0 \
     gir1.2-girepository-2.0 golang-go libpugixml-dev \
-    libcvc0t64 gir1.2-cvc-1.0
+    libcvc0t64 gir1.2-cvc-1.0 python3-xdg python3-dbus
 
 # Create necessary directories
 echo "Creating necessary directories..."
