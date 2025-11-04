@@ -7,40 +7,6 @@ set -o pipefail  # Prevent errors in a pipeline from being masked
 REPO_URL="https://github.com/Ackerman-00/Ax-Shell-Quiet.git"
 INSTALL_DIR="$HOME/.config/Ax-Shell"
 
-# Function to check if user has sudo access
-check_sudo() {
-    echo "Checking sudo access..."
-    if ! sudo -n true 2>/dev/null; then
-        echo "Please enter your sudo password when prompted to continue installation."
-        if ! sudo -v; then
-            echo "Error: Sudo authentication failed. Please run with proper sudo access."
-            exit 1
-        fi
-    fi
-}
-
-# Function to install packages with proper error handling
-install_packages() {
-    local packages=("$@")
-    
-    if command -v pikman &>/dev/null; then
-        echo "Installing packages with pikman: ${packages[*]}"
-        pikman install "${packages[@]}" || {
-            echo "Warning: Some packages failed to install with pikman. Continuing..."
-            return 0
-        }
-    elif command -v apt &>/dev/null; then
-        echo "Installing packages with apt: ${packages[*]}"
-        sudo apt install -y "${packages[@]}" || {
-            echo "Warning: Some packages failed to install with apt. Continuing..."
-            return 0
-        }
-    else
-        echo "Error: No package manager found (pikman or apt)"
-        return 1
-    fi
-}
-
 # Package list for PikaOS
 PACKAGES=(
     brightnessctl
@@ -120,38 +86,19 @@ fi
 echo "Starting Ax-Shell installation for PikaOS..."
 echo "=============================================="
 
-# Check sudo access early
-check_sudo
-
 # Update package lists
 echo "Updating package lists..."
-if command -v pikman &>/dev/null; then
-    pikman update || echo "Warning: pikman update failed, continuing..."
-elif command -v apt &>/dev/null; then
-    sudo apt update || echo "Warning: apt update failed, continuing..."
-else
-    echo "Error: No package manager found"
-    exit 1
-fi
+sudo apt update
 
-# Install packages in smaller batches to handle failures better
+# Install packages in batches (much faster)
 echo "Installing system packages..."
-for package in "${PACKAGES[@]}"; do
-    echo "Installing: $package"
-    install_packages "$package"
-done
+sudo apt install -y "${PACKAGES[@]}"
 
 echo "Installing Python packages..."
-for package in "${PYTHON_PACKAGES[@]}"; do
-    echo "Installing: $package"
-    install_packages "$package"
-done
+sudo apt install -y "${PYTHON_PACKAGES[@]}"
 
 echo "Installing build dependencies..."
-for package in "${BUILD_PACKAGES[@]}"; do
-    echo "Installing: $package"
-    install_packages "$package"
-done
+sudo apt install -y "${BUILD_PACKAGES[@]}"
 
 # Create necessary directories
 echo "Creating necessary directories..."
@@ -301,33 +248,28 @@ fi
 # --- Network services configuration ---
 echo "Configuring network services..."
 
-# Only attempt network configuration if we have sudo access
-if sudo -n true 2>/dev/null; then
-    # Disable iwd if enabled/active
-    if systemctl is-enabled --quiet iwd 2>/dev/null || systemctl is-active --quiet iwd 2>/dev/null; then
-        echo "Disabling iwd..."
-        sudo systemctl disable --now iwd 2>/dev/null || echo "Could not disable iwd"
-    else
-        echo "iwd is not enabled or not present."
-    fi
-
-    # Enable NetworkManager if not enabled
-    if ! systemctl is-enabled --quiet NetworkManager 2>/dev/null; then
-        echo "Enabling NetworkManager..."
-        sudo systemctl enable NetworkManager 2>/dev/null || echo "Could not enable NetworkManager"
-    else
-        echo "NetworkManager is already enabled."
-    fi
-
-    # Start NetworkManager if not running
-    if ! systemctl is-active --quiet NetworkManager 2>/dev/null; then
-        echo "Starting NetworkManager..."
-        sudo systemctl start NetworkManager 2>/dev/null || echo "Could not start NetworkManager"
-    else
-        echo "NetworkManager is already running."
-    fi
+# Disable iwd if enabled/active
+if systemctl is-enabled --quiet iwd 2>/dev/null || systemctl is-active --quiet iwd 2>/dev/null; then
+    echo "Disabling iwd..."
+    sudo systemctl disable --now iwd 2>/dev/null || echo "Could not disable iwd"
 else
-    echo "Skipping network configuration (no sudo access)"
+    echo "iwd is not enabled or not present."
+fi
+
+# Enable NetworkManager if not enabled
+if ! systemctl is-enabled --quiet NetworkManager 2>/dev/null; then
+    echo "Enabling NetworkManager..."
+    sudo systemctl enable NetworkManager 2>/dev/null || echo "Could not enable NetworkManager"
+else
+    echo "NetworkManager is already enabled."
+fi
+
+# Start NetworkManager if not running
+if ! systemctl is-active --quiet NetworkManager 2>/dev/null; then
+    echo "Starting NetworkManager..."
+    sudo systemctl start NetworkManager 2>/dev/null || echo "Could not start NetworkManager"
+else
+    echo "NetworkManager is already running."
 fi
 
 # --- Copy local fonts from Ax-Shell ---
