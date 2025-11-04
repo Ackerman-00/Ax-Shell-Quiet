@@ -6,53 +6,59 @@ set -o pipefail  # Prevent errors in a pipeline from being masked
 
 REPO_URL="https://github.com/Axenide/Ax-Shell.git"
 INSTALL_DIR="$HOME/.config/Ax-Shell"
+
+# Package list for PikaOS - using your confirmed available packages
 PACKAGES=(
-  brightnessctl
-  cava
-  cliphist
-  fabric-cli-git
-  gnome-bluetooth-3.0
-  gobject-introspection
-  gpu-screen-recorder
-  hypridle
-  hyprlock
-  hyprpicker
-  hyprshot
-  hyprsunset
-  imagemagick
-  libnotify
-  matugen-bin
-  network-manager-applet
-  networkmanager
-  nm-connection-editor
-  noto-fonts-emoji
-  nvtop
-  playerctl
-  power-profiles-daemon
-  python-fabric-git
-  python-gobject
-  python-ijson
-  python-numpy
-  python-pillow
-  python-psutil
-  python-pywayland
-  python-requests
-  python-setproctitle
-  python-toml
-  python-watchdog
-  swappy
-  swww-git
-  tesseract
-  tesseract-data-eng
-  tesseract-data-spa
-  tmux
-  ttf-nerd-fonts-symbols-mono
-  unzip
-  upower
-  uwsm
-  vte3
-  webp-pixbuf-loader
-  wl-clipboard
+    brightnessctl
+    cava
+    cliphist
+    fabric
+    libgnome-bluetooth-3.0-13
+    gobject-introspection
+    gpu-screen-recorder
+    hypridle
+    hyprlock
+    hyprpicker
+    libnotify-bin
+    matugen
+    network-manager-applet
+    nm-connection-editor
+    fonts-noto
+    fonts-noto-core
+    fonts-noto-extra
+    fonts-noto-ui-core
+    fonts-noto-unhinted
+    fonts-noto-color-emoji
+    fonts-noto-mono
+    nvtop
+    playerctl
+    power-profiles-daemon
+    swappy
+    swww
+    tesseract-ocr
+    tesseract-ocr-eng
+    tesseract-ocr-spa
+    tmux
+    unzip
+    upower
+    libvte-2.91-0
+    gir1.2-vte-2.91
+    webp-pixbuf-loader
+    wl-clipboard
+)
+
+# Python packages for PikaOS
+PYTHON_PACKAGES=(
+    python3-gi
+    python3-ijson
+    python3-numpy
+    python3-pil
+    python3-psutil
+    python3-pywayland
+    python3-requests
+    python3-setproctitle
+    python3-toml
+    python3-watchdog
 )
 
 # Prevent running as root
@@ -61,20 +67,98 @@ if [ "$(id -u)" -eq 0 ]; then
     exit 1
 fi
 
-aur_helper="yay"
-
-# Check if paru exists, otherwise use yay
-if command -v paru &>/dev/null; then
-    aur_helper="paru"
-elif ! command -v yay &>/dev/null; then
-    echo "Installing yay-bin..."
-    tmpdir=$(mktemp -d)
-    git clone --depth=1 https://aur.archlinux.org/yay-bin.git "$tmpdir/yay-bin"
-    (cd "$tmpdir/yay-bin" && makepkg -si --noconfirm)
-    rm -rf "$tmpdir"
+# Use pikman if available, otherwise use apt
+if command -v pikman &>/dev/null; then
+    PKG_MANAGER="sudo pikman install -y"
+    echo "Using pikman for package installation."
+elif command -v apt &>/dev/null; then
+    PKG_MANAGER="sudo apt install -y"
+    echo "Using apt for package installation."
+else
+    echo "Error: Neither pikman nor apt found. Cannot install packages."
+    exit 1
 fi
 
-# Clone or update the repository
+# Update package lists
+echo "Updating package lists..."
+sudo apt update
+
+# Install required system packages
+echo "Installing required system packages..."
+$PKG_MANAGER "${PACKAGES[@]}" || { echo "Some packages failed to install. Continuing with script..."; }
+
+# Install Python packages
+echo "Installing Python packages..."
+$PKG_MANAGER "${PYTHON_PACKAGES[@]}" || { echo "Some Python packages failed to install. Continuing with script..."; }
+
+# --- Install Hyprshot from Source ---
+echo "Installing Hyprshot from source..."
+
+HYPRSHOT_DIR="$HOME/.local/src/Hyprshot"
+mkdir -p "$(dirname "$HYPRSHOT_DIR")"
+if [ -d "$HYPRSHOT_DIR" ]; then
+    echo "Updating Hyprshot repository..."
+    git -C "$HYPRSHOT_DIR" pull
+else
+    echo "Cloning Hyprshot repository..."
+    git clone --depth=1 https://github.com/Gustash/hyprshot.git "$HYPRSHOT_DIR"
+fi
+
+# Create symlink in local bin directory
+mkdir -p "$HOME/.local/bin"
+ln -sf "$HYPRSHOT_DIR/hyprshot" "$HOME/.local/bin/hyprshot"
+chmod +x "$HYPRSHOT_DIR/hyprshot"
+
+echo "Hyprshot has been installed to $HOME/.local/bin/hyprshot"
+
+# --- Install Hyprsunset from Source ---
+echo "Installing Hyprsunset from source..."
+
+# Install build dependencies for Hyprsunset
+sudo apt install -y meson ninja-build
+
+HYPRSUNSET_DIR="$HOME/.local/src/hyprsunset"
+mkdir -p "$(dirname "$HYPRSUNSET_DIR")"
+if [ -d "$HYPRSUNSET_DIR" ]; then
+    echo "Updating Hyprsunset repository..."
+    git -C "$HYPRSUNSET_DIR" pull
+else
+    echo "Cloning Hyprsunset repository..."
+    git clone --depth=1 https://github.com/hyprwm/hyprsunset.git "$HYPRSUNSET_DIR"
+fi
+
+# Build and install Hyprsunset
+cd "$HYPRSUNSET_DIR"
+meson --prefix=/usr build
+sudo ninja -C build install
+
+echo "Hyprsunset has been installed from source."
+
+# --- Install Gray from Source ---
+echo "Installing Gray from source..."
+
+GRAY_DIR="$HOME/.local/src/gray"
+mkdir -p "$(dirname "$GRAY_DIR")"
+if [ -d "$GRAY_DIR" ]; then
+    echo "Updating Gray repository..."
+    git -C "$GRAY_DIR" pull
+else
+    echo "Cloning Gray repository..."
+    git clone --depth=1 https://github.com/Fabric-Development/gray.git "$GRAY_DIR"
+fi
+
+# Build and install Gray
+cd "$GRAY_DIR"
+meson --prefix=/usr build
+sudo ninja -C build install
+
+echo "Gray has been installed from source."
+
+# Note about Nerd Fonts
+echo "Note: ttf-nerd-fonts-symbols-mono is not available in PikaOS repositories."
+echo "You may need to manually install Nerd Fonts from their official website or GitHub repository."
+
+# Clone or update the Ax-Shell repository
 if [ -d "$INSTALL_DIR" ]; then
     echo "Updating Ax-Shell..."
     git -C "$INSTALL_DIR" pull
@@ -82,13 +166,6 @@ else
     echo "Cloning Ax-Shell..."
     git clone --depth=1 "$REPO_URL" "$INSTALL_DIR"
 fi
-
-# Install required packages using the detected AUR helper (only if missing)
-echo "Installing required packages..."
-$aur_helper -Syy --needed --devel --noconfirm "${PACKAGES[@]}" || true
-
-echo "Installing gray-git..."
-yes | $aur_helper -Syy --needed --devel --noconfirm gray-git || true
 
 echo "Installing required fonts..."
 
@@ -147,9 +224,20 @@ else
     echo "Local fonts are already installed. Skipping copy."
 fi
 
-python "$INSTALL_DIR/config/config.py"
+# Ensure ~/.local/bin is in PATH for hyprshot
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+    echo "Added ~/.local/bin to PATH in .bashrc"
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
+python3 "$INSTALL_DIR/config/config.py"
 echo "Starting Ax-Shell..."
 killall ax-shell 2>/dev/null || true
-uwsm app -- python "$INSTALL_DIR/main.py" > /dev/null 2>&1 & disown
+
+# Since uwsm is not available, starting directly with Python
+echo "Starting Ax-Shell directly with Python (uwsm not available)..."
+python3 "$INSTALL_DIR/main.py" > /dev/null 2>&1 & disown
 
 echo "Installation complete."
+echo "Note: Some components were installed in ~/.local/bin - make sure this is in your PATH."
