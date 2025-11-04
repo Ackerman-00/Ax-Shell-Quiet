@@ -1,10 +1,60 @@
 #!/bin/bash
 
-set -e  # Exit immediately if a command fails
-set -o pipefail  # Prevent errors in a pipeline from being masked
+set -e # Exit immediately if a command fails
+set -o pipefail # Prevent errors in a pipeline from being masked
 
 REPO_URL="https://github.com/Ackerman-00/Ax-Shell-Quiet.git"
 INSTALL_DIR="$HOME/.config/Ax-Shell"
+
+# --- FIX FUNCTIONS ---
+# Function to automatically fix missing Python imports and indentation errors
+fix_python_imports() {
+    local file_path="$1"
+    local import_line="$2"
+    local target_line_number="$3"
+    
+    if [ ! -f "$file_path" ]; then
+        echo "⚠️ Warning: File not found: $file_path"
+        return
+    fi
+
+    echo "⚙️ Fixing imports in $file_path..."
+    
+    # Check if the line already exists
+    if grep -qF -- "$import_line" "$file_path"; then
+        echo "✅ Import '$import_line' already present in $file_path."
+        return
+    fi
+
+    # Read all lines into an array
+    mapfile -t lines < "$file_path"
+    
+    # Check if the target line number is valid
+    if [ "$target_line_number" -gt "${#lines[@]}" ]; then
+        echo "⚠️ Warning: Target line number $target_line_number exceeds file length in $file_path. Skipping fix."
+        return
+    fi
+
+    # Determine indentation from the surrounding lines (using spaces)
+    local target_index=$((target_line_number - 1))
+    local reference_line="${lines[target_index]}"
+    local current_indentation=$(echo "$reference_line" | sed 's/\([^[:space:]]\).*//')
+    
+    # Use a specific line number to insert the new import
+    if [ -n "$target_line_number" ]; then
+        local before=("${lines[@]:0:target_index}")
+        local after=("${lines[@]:target_index}")
+        
+        # Write content back to the file with the new line added and proper indentation
+        printf "%s\n" "${before[@]}" > "$file_path"
+        # The added line must be correctly indented (no tabs, just spaces)
+        echo "${current_indentation}${import_line}" >> "$file_path"
+        printf "%s\n" "${after[@]}" >> "$file_path"
+        
+        echo "✅ Added '$import_line' to $file_path."
+    fi
+}
+# --------------------
 
 echo "Starting Ax-Shell installation for PikaOS..."
 echo "=============================================="
@@ -13,14 +63,14 @@ echo "=============================================="
 echo "Updating package lists..."
 sudo apt update
 
-# Install essential packages from PikaOS repos
-echo "Installing required packages..."
+# Install essential packages, including the necessary GObject Introspection bindings
+echo "Installing required packages and fixing missing dependencies..."
 sudo apt install -y \
     brightnessctl cava cliphist \
     gobject-introspection gpu-screen-recorder hypridle hyprlock \
     libnotify-bin matugen network-manager-applet nm-connection-editor \
     fonts-noto fonts-noto-color-emoji fonts-noto-mono \
-    nvtop playerctl power-profiles-daemon swappy swww \
+    nvtop power-profiles-daemon swappy swww \
     tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa \
     tmux unzip upower \
     webp-pixbuf-loader wl-clipboard jq grim slurp \
@@ -37,7 +87,14 @@ sudo apt install -y \
     python3-setuptools python3-wheel python3-build python3-installer \
     libgirepository1.0-dev python3-dev libffi-dev gir1.2-glib-2.0 \
     gir1.2-girepository-2.0 golang-go libpugixml-dev \
-    libcvc0t64 gir1.2-cvc-1.0 python3-xdg python3-dbus scdoc
+    libcvc0t64 gir1.2-cvc-1.0 python3-xdg python3-dbus scdoc \
+    # --- ADDED DEPENDENCIES FOR AX-SHELL FUNCTIONALITY ---
+    socat \
+    playerctl \
+    python3-networkmanager \
+    gir1.2-nm-1.0 \
+    gir1.2-playerctl-2.0 \
+    gir1.2-gnomebluetooth-3.0
 
 # Create necessary directories
 echo "Creating necessary directories..."
@@ -69,9 +126,17 @@ meson compile -C build
 sudo meson install -C build
 echo "✅ uwsm installed"
 
-# Install Fabric GUI framework using --break-system-packages
-echo "Installing Fabric GUI framework..."
-pip install --break-system-packages git+https://github.com/Fabric-Development/fabric.git
+# --- FABRIC CLEANUP AND INSTALLATION FIX (Crucial for PyGObject) ---
+echo "Cleaning up conflicting user-installed Python packages..."
+# Force removal of potentially conflicting local packages
+/usr/bin/env python3 -m pip uninstall -y fabric PyGObject pycairo --break-system-packages 2>/dev/null || true
+
+echo "Installing Fabric GUI framework using --break-system-packages and skipping dependencies..."
+# Install Fabric without dependencies to force it to use the system PyGObject
+/usr/bin/env python3 -m pip install --break-system-packages --no-deps --no-cache-dir git+https://github.com/Fabric-Development/fabric.git
+echo "✅ Fabric installed"
+# --- END FABRIC FIX ---
+
 
 # Install Hyprshot (simple copy)
 echo "Installing Hyprshot..."
@@ -114,6 +179,22 @@ fi
 # Update font cache
 fc-cache -fv
 echo "✅ Fonts installation completed"
+
+# --- PYTHON CODE FIXES (Crucial for launch) ---
+echo "Applying Python import fixes to Ax-Shell source files..."
+# 1. Fix missing NetworkClient import in modules/metrics.py (Line 22)
+fix_python_imports \
+    "$INSTALL_DIR/modules/metrics.py" \
+    "from services.network import NetworkClient" \
+    22
+
+# 2. Fix missing NetworkClient import in modules/buttons.py (approx Line 15)
+fix_python_imports \
+    "$INSTALL_DIR/modules/buttons.py" \
+    "from services.network import NetworkClient" \
+    15
+# --- END PYTHON CODE FIXES ---
+
 
 # Network services handling
 echo "Configuring network services..."
@@ -167,15 +248,11 @@ echo "=============================================="
 echo "🎉 INSTALLATION COMPLETE!"
 echo "=============================================="
 echo ""
-echo "Ax-Shell is now running with uwsm!"
+echo "**Ax-Shell is now running with uwsm!**"
 echo ""
-echo "📍 Important locations:"
-echo "   Config: $INSTALL_DIR"
-echo "   Local Bin: $HOME/.local/bin"
-echo "   Fonts: $HOME/.local/share/fonts"
-echo ""
-echo "🚀 Quick start:"
-echo "   Restart terminal or run: source ~/.bashrc"
-echo "   Start manually: uwsm app -- python3 $INSTALL_DIR/main.py"
+echo "🔥 **IMPORTANT LAST STEP (Visibility)**:"
+echo "If the widgets are not visible, ensure you have the correct layer rule in your Hyprland config (~/.config/hypr/hyprland.conf):"
+echo "layerrule = all, fabric"
+echo "Then run: **hyprctl reload**"
 echo ""
 echo "=============================================="
