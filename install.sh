@@ -24,7 +24,7 @@ fix_python_imports() {
     if grep -qF -- "$import_line" "$file_path"; then
         echo "✅ Import '$import_line' already present in $file_path."
         return
-    }
+    fi
 
     # Read all lines into an array
     mapfile -t lines < "$file_path"
@@ -33,7 +33,7 @@ fix_python_imports() {
     if [ "$target_line_number" -gt "${#lines[@]}" ]; then
         echo "⚠️ Warning: Target line number $target_line_number exceeds file length in $file_path. Skipping fix."
         return
-    }
+    fi
 
     # Determine indentation from the surrounding lines (using spaces)
     local target_index=$((target_line_number - 1))
@@ -52,7 +52,7 @@ fix_python_imports() {
         printf "%s\n" "${after[@]}" >> "$file_path"
         
         echo "✅ Added '$import_line' to $file_path."
-    }
+    fi
 }
 # --------------------
 
@@ -65,6 +65,7 @@ sudo apt update
 
 # Install essential packages, including the necessary GObject Introspection bindings
 echo "Installing required packages and fixing missing dependencies..."
+# NOTE: All packages MUST be on a single continuous command block to prevent the 'socat' execution error.
 sudo apt install -y \
     brightnessctl cava cliphist gobject-introspection gpu-screen-recorder hypridle hyprlock \
     libnotify-bin matugen network-manager-applet nm-connection-editor \
@@ -87,7 +88,6 @@ sudo apt install -y \
     libgirepository1.0-dev python3-dev libffi-dev gir1.2-glib-2.0 \
     gir1.2-girepository-2.0 golang-go libpugixml-dev \
     libcvc0t64 gir1.2-cvc-1.0 python3-xdg python3-dbus scdoc \
-    # --- ADDED DEPENDENCIES FOR AX-SHELL FUNCTIONALITY ---
     socat playerctl python3-networkmanager gir1.2-nm-1.0 gir1.2-playerctl-2.0 gir1.2-gnomebluetooth-3.0
 
 # Create necessary directories
