@@ -65,30 +65,8 @@ sudo apt update
 
 # Install essential packages, including the necessary GObject Introspection bindings
 echo "Installing required packages and fixing missing dependencies..."
-# NOTE: All packages MUST be on a single continuous command block to prevent the 'socat' execution error.
-sudo apt install -y \
-    brightnessctl cava cliphist gobject-introspection gpu-screen-recorder hypridle hyprlock \
-    libnotify-bin matugen network-manager-applet nm-connection-editor \
-    fonts-noto fonts-noto-color-emoji fonts-noto-mono \
-    nvtop power-profiles-daemon swappy swww \
-    tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa \
-    tmux unzip upower \
-    webp-pixbuf-loader wl-clipboard jq grim slurp \
-    libhyprlang-dev libhyprutils-dev \
-    imagemagick libdbusmenu-gtk3-dev libgtk-layer-shell0 \
-    libgtk-layer-shell-dev libwebkit2gtk-4.1-0 gir1.2-webkit2-4.1 \
-    python3-gi python3-gi-cairo python3-full python3-pip python3-venv \
-    python3-ijson python3-numpy python3-pil python3-psutil \
-    python3-pywayland python3-requests python3-setproctitle \
-    python3-toml python3-watchdog build-essential cmake git \
-    meson ninja-build pkg-config valac libjson-glib-dev \
-    libgtk-3-dev libcairo2-dev libpango1.0-dev libjpeg-dev \
-    libwayland-dev wayland-protocols libxkbcommon-dev \
-    python3-setuptools python3-wheel python3-build python3-installer \
-    libgirepository1.0-dev python3-dev libffi-dev gir1.2-glib-2.0 \
-    gir1.2-girepository-2.0 golang-go libpugixml-dev \
-    libcvc0t64 gir1.2-cvc-1.0 python3-xdg python3-dbus scdoc \
-    socat playerctl python3-networkmanager gir1.2-nm-1.0 gir1.2-playerctl-2.0 gir1.2-gnomebluetooth-3.0
+# CRITICAL FIX: The entire package list is now on ONE line to prevent 'socat' execution error.
+sudo apt install -y brightnessctl cava cliphist gobject-introspection gpu-screen-recorder hypridle hyprlock libnotify-bin matugen network-manager-applet nm-connection-editor fonts-noto fonts-noto-color-emoji fonts-noto-mono nvtop power-profiles-daemon swappy swww tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa tmux unzip upower webp-pixbuf-loader wl-clipboard jq grim slurp libhyprlang-dev libhyprutils-dev imagemagick libdbusmenu-gtk3-dev libgtk-layer-shell0 libgtk-layer-shell-dev libwebkit2gtk-4.1-0 gir1.2-webkit2-4.1 python3-gi python3-gi-cairo python3-full python3-pip python3-venv python3-ijson python3-numpy python3-pil python3-psutil python3-pywayland python3-requests python3-setproctitle python3-toml python3-watchdog build-essential cmake git meson ninja-build pkg-config valac libjson-glib-dev libgtk-3-dev libcairo2-dev libpango1.0-dev libjpeg-dev libwayland-dev wayland-protocols libxkbcommon-dev python3-setuptools python3-wheel python3-build python3-installer libgirepository1.0-dev python3-dev libffi-dev gir1.2-glib-2.0 gir1.2-girepository-2.0 golang-go libpugixml-dev libcvc0t64 gir1.2-cvc-1.0 python3-xdg python3-dbus scdoc socat playerctl python3-networkmanager gir1.2-nm-1.0 gir1.2-playerctl-2.0 gir1.2-gnomebluetooth-3.0
 
 # Create necessary directories
 echo "Creating necessary directories..."
