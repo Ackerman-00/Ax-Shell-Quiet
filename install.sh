@@ -61,6 +61,19 @@ PYTHON_PACKAGES=(
     python3-watchdog
 )
 
+# Build dependencies
+BUILD_PACKAGES=(
+    cmake
+    gcc
+    gdb
+    git
+    hyprland-git
+    hyprutils-git
+    hyprwayland-scanner-git
+    wayland
+    wayland-protocols
+)
+
 # Prevent running as root
 if [ "$(id -u)" -eq 0 ]; then
     echo "Please do not run this script as root."
@@ -69,7 +82,7 @@ fi
 
 # Use pikman if available, otherwise use apt
 if command -v pikman &>/dev/null; then
-    PKG_MANAGER="pikman install -y"  # Fixed: removed sudo for pikman
+    PKG_MANAGER="pikman install"  # Fixed: removed -y flag
     echo "Using pikman for package installation."
 elif command -v apt &>/dev/null; then
     PKG_MANAGER="sudo apt install -y"
@@ -82,7 +95,7 @@ fi
 # Update package lists
 echo "Updating package lists..."
 if command -v pikman &>/dev/null; then
-    pikman update  # pikman doesn't need sudo for update
+    pikman update
 else
     sudo apt update
 fi
@@ -94,6 +107,10 @@ $PKG_MANAGER "${PACKAGES[@]}" || { echo "Some packages failed to install. Contin
 # Install Python packages
 echo "Installing Python packages..."
 $PKG_MANAGER "${PYTHON_PACKAGES[@]}" || { echo "Some Python packages failed to install. Continuing with script..."; }
+
+# Install build dependencies
+echo "Installing build dependencies..."
+$PKG_MANAGER "${BUILD_PACKAGES[@]}" || { echo "Some build packages failed to install. Continuing with script..."; }
 
 # --- Install Hyprshot from Source ---
 echo "Installing Hyprshot from source..."
@@ -118,9 +135,6 @@ echo "Hyprshot has been installed to $HOME/.local/bin/hyprshot"
 # --- Install Hyprsunset from Source ---
 echo "Installing Hyprsunset from source..."
 
-# Install build dependencies for Hyprsunset
-sudo apt install -y meson ninja-build
-
 HYPRSUNSET_DIR="$HOME/.local/src/hyprsunset"
 mkdir -p "$(dirname "$HYPRSUNSET_DIR")"
 if [ -d "$HYPRSUNSET_DIR" ]; then
@@ -131,10 +145,11 @@ else
     git clone --depth=1 https://github.com/hyprwm/hyprsunset.git "$HYPRSUNSET_DIR"
 fi
 
-# Build and install Hyprsunset - FIXED MESON COMMAND
+# Build and install Hyprsunset using CMake (fixed based on AUR build)
 cd "$HYPRSUNSET_DIR"
-meson setup --prefix=/usr build .  # Fixed: added 'setup' and source directory '.'
-sudo ninja -C build install
+cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_INSTALL_PREFIX=/usr -S . -B ./build
+cmake --build ./build --config Release --target hyprsunset
+sudo cmake --install build
 
 echo "Hyprsunset has been installed from source."
 
@@ -151,9 +166,9 @@ else
     git clone --depth=1 https://github.com/Fabric-Development/gray.git "$GRAY_DIR"
 fi
 
-# Build and install Gray
+# Build and install Gray using Meson
 cd "$GRAY_DIR"
-meson setup --prefix=/usr build .  # Fixed: added 'setup' and source directory '.'
+meson setup --prefix=/usr build .
 sudo ninja -C build install
 
 echo "Gray has been installed from source."
