@@ -4,10 +4,10 @@ set -e  # Exit immediately if a command fails
 set -u  # Treat unset variables as errors
 set -o pipefail  # Prevent errors in a pipeline from being masked
 
-REPO_URL="https://github.com/Axenide/Ax-Shell.git"
+REPO_URL="https://github.com/Ackerman-00/Ax-Shell-Quiet.git"
 INSTALL_DIR="$HOME/.config/Ax-Shell"
 
-# Package list for PikaOS - using your confirmed available packages
+# Package list for PikaOS
 PACKAGES=(
     brightnessctl
     cava
@@ -158,12 +158,12 @@ echo "Gray has been installed from source."
 echo "Note: ttf-nerd-fonts-symbols-mono is not available in PikaOS repositories."
 echo "You may need to manually install Nerd Fonts from their official website or GitHub repository."
 
-# Clone or update the Ax-Shell repository
+# Clone or update the Ax-Shell repository (using user's fork)
 if [ -d "$INSTALL_DIR" ]; then
-    echo "Updating Ax-Shell..."
+    echo "Updating Ax-Shell (Quiet fork)..."
     git -C "$INSTALL_DIR" pull
 else
-    echo "Cloning Ax-Shell..."
+    echo "Cloning Ax-Shell (Quiet fork)..."
     git clone --depth=1 "$REPO_URL" "$INSTALL_DIR"
 fi
 
@@ -231,6 +231,8 @@ if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
+# Run configuration and start Ax-Shell
+cd "$INSTALL_DIR"
 python3 "$INSTALL_DIR/config/config.py"
 echo "Starting Ax-Shell..."
 killall ax-shell 2>/dev/null || true
@@ -239,5 +241,6 @@ killall ax-shell 2>/dev/null || true
 echo "Starting Ax-Shell directly with Python (uwsm not available)..."
 python3 "$INSTALL_DIR/main.py" > /dev/null 2>&1 & disown
 
-echo "Installation complete."
+echo "Installation complete!"
+echo "Ax-Shell (Quiet fork) has been successfully installed from $REPO_URL"
 echo "Note: Some components were installed in ~/.local/bin - make sure this is in your PATH."
