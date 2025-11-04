@@ -64,12 +64,10 @@ PYTHON_PACKAGES=(
     python3-watchdog
 )
 
-# Build dependencies - expanded with missing packages
+# Build dependencies - minimal set to avoid pulling in too many dependencies
 BUILD_PACKAGES=(
     build-essential
     cmake
-    gcc
-    g++
     git
     meson
     ninja-build
@@ -80,7 +78,7 @@ BUILD_PACKAGES=(
     libcairo2-dev
     libpango1.0-dev
     libjpeg-dev
-    # Additional dependencies for specific tools
+    # Vala for Gray
     valac
     libjson-glib-dev
     libgtk-3-dev
@@ -141,6 +139,51 @@ fc-cache -fv
 
 echo "Nerd Fonts Symbols have been installed to user directory."
 
+# --- Install Hypr dependencies first ---
+echo "Installing Hypr dependencies..."
+
+# Install hyprutils first (dependency for hyprpicker)
+echo "Installing hyprutils..."
+HYPRUTILS_DIR="$HOME/.local/src/hyprutils"
+if [ -d "$HYPRUTILS_DIR" ]; then
+    echo "Updating hyprutils repository..."
+    git -C "$HYPRUTILS_DIR" pull || echo "Git pull failed, continuing with existing code..."
+else
+    echo "Cloning hyprutils repository..."
+    git clone --depth=1 https://github.com/hyprwm/hyprutils.git "$HYPRUTILS_DIR"
+fi
+
+cd "$HYPRUTILS_DIR"
+if [ -f "CMakeLists.txt" ]; then
+    echo "Building hyprutils with CMake..."
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build && \
+    sudo cmake --install build || {
+        echo "Warning: hyprutils installation failed"
+    }
+fi
+
+# Install hyprwayland-scanner (dependency for hyprpicker)
+echo "Installing hyprwayland-scanner..."
+HYPRWAYLAND_SCANNER_DIR="$HOME/.local/src/hyprwayland-scanner"
+if [ -d "$HYPRWAYLAND_SCANNER_DIR" ]; then
+    echo "Updating hyprwayland-scanner repository..."
+    git -C "$HYPRWAYLAND_SCANNER_DIR" pull || echo "Git pull failed, continuing with existing code..."
+else
+    echo "Cloning hyprwayland-scanner repository..."
+    git clone --depth=1 https://github.com/hyprwm/hyprwayland-scanner.git "$HYPRWAYLAND_SCANNER_DIR"
+fi
+
+cd "$HYPRWAYLAND_SCANNER_DIR"
+if [ -f "CMakeLists.txt" ]; then
+    echo "Building hyprwayland-scanner with CMake..."
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build && \
+    sudo cmake --install build || {
+        echo "Warning: hyprwayland-scanner installation failed"
+    }
+fi
+
 # --- Install Hyprpicker from Source ---
 echo "Installing Hyprpicker from source..."
 
@@ -153,23 +196,21 @@ else
     git clone --depth=1 https://github.com/hyprwm/hyprpicker.git "$HYPRPICKER_DIR"
 fi
 
-# Build and install Hyprpicker - it uses CMake
+# Build and install Hyprpicker
 cd "$HYPRPICKER_DIR"
 if [ -f "CMakeLists.txt" ]; then
     echo "Building Hyprpicker with CMake..."
-    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-    cmake --build build
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build && \
     sudo cmake --install build || {
-        echo "Warning: Hyprpicker installation failed, trying manual copy..."
-        sudo cp build/hyprpicker /usr/local/bin/ || echo "Manual copy also failed"
+        echo "Warning: Hyprpicker installation failed, trying alternative method..."
+        # Try manual installation
+        if [ -f "build/hyprpicker" ]; then
+            sudo cp build/hyprpicker /usr/local/bin/ && echo "Hyprpicker manually installed to /usr/local/bin/"
+        fi
     }
 else
     echo "No CMakeLists.txt found for Hyprpicker"
-    # Try alternative build methods
-    if [ -f "make.sh" ]; then
-        echo "Trying make.sh..."
-        chmod +x make.sh && ./make.sh && sudo cp hyprpicker /usr/local/bin/ || echo "make.sh failed"
-    fi
 fi
 
 echo "Hyprpicker installation attempted."
@@ -206,33 +247,17 @@ else
     git clone --depth=1 https://github.com/hyprwm/hyprsunset.git "$HYPRSUNSET_DIR"
 fi
 
-# Build and install Hyprsunset - check for proper structure
+# Build and install Hyprsunset
 cd "$HYPRSUNSET_DIR"
-if [ -f "meson.build" ]; then
-    echo "Building Hyprsunset with meson..."
-    meson setup build --buildtype=release && \
-    ninja -C build && \
-    sudo ninja -C build install || {
-        echo "Warning: Hyprsunset build/install failed, continuing..."
-    }
-elif [ -f "CMakeLists.txt" ]; then
+if [ -f "CMakeLists.txt" ]; then
     echo "Building Hyprsunset with CMake..."
-    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-    cmake --build build
-    sudo cmake --install build || echo "CMake installation failed"
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build && \
+    sudo cmake --install build || {
+        echo "Warning: Hyprsunset installation failed"
+    }
 else
-    echo "Checking for alternative build structure..."
-    # Try to find build files in subdirectories
-    if find . -name "meson.build" | head -n1 | grep -q "."; then
-        BUILD_SUBDIR=$(find . -name "meson.build" -printf '%h\n' | head -n1)
-        echo "Found meson.build in subdirectory: $BUILD_SUBDIR"
-        cd "$BUILD_SUBDIR"
-        meson setup build --buildtype=release && \
-        ninja -C build && \
-        sudo ninja -C build install || echo "Subdirectory build failed"
-    else
-        echo "No build system found for Hyprsunset"
-    fi
+    echo "No CMakeLists.txt found for Hyprsunset"
 fi
 
 echo "Hyprsunset installation attempted."
