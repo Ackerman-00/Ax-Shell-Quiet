@@ -52,6 +52,10 @@ else
     git clone --depth=1 "$REPO_URL" "$INSTALL_DIR"
 fi
 
+# Install Fabric GUI framework via pip (the correct one for Ax-Shell)
+echo "Installing Fabric GUI framework..."
+pip install git+https://github.com/Fabric-Development/fabric.git
+
 # Install Hyprshot (simple copy)
 echo "Installing Hyprshot..."
 HYPRSHOT_DIR="$HOME/.local/src/hyprshot"
