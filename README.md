@@ -17,7 +17,7 @@
 > You need a functioning Hyprland installation.
 > This will also enable NetworkManager if it is not already enabled.
 
-### Pikaos Linux
+### Pikaos Linux (Tested)
 
 > [!TIP]
 > This command also works for updating an existing installation!
