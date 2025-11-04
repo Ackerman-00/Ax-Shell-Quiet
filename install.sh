@@ -47,8 +47,7 @@ PACKAGES=(
     jq
     grim
     slurp
-    # Hypr tools from PikaOS repo
-    hyprpicker
+    # Hypr tools from PikaOS repo (excluding hyprpicker - we'll build from source)
     libhyprlang
     libhyprutils
     hyprwayland-scanner
@@ -86,6 +85,13 @@ BUILD_PACKAGES=(
     valac
     libjson-glib-dev
     libgtk-3-dev
+    # Additional dependencies for hyprpicker
+    libcairo2-dev
+    libpango1.0-dev
+    libjpeg-dev
+    libwayland-dev
+    wayland-protocols
+    libxkbcommon-dev
 )
 
 # Prevent running as root
@@ -116,6 +122,43 @@ echo "Creating necessary directories..."
 mkdir -p "$HOME/.local/src"
 mkdir -p "$HOME/.local/bin"
 mkdir -p "$HOME/.fonts"
+
+# --- Build and Install Hyprpicker from Source (AUR-style) ---
+echo "Building and installing Hyprpicker from source..."
+
+HYPRPICKER_DIR="$HOME/.local/src/hyprpicker"
+if [ -d "$HYPRPICKER_DIR" ]; then
+    echo "Updating Hyprpicker repository..."
+    git -C "$HYPRPICKER_DIR" pull || echo "Git pull failed, continuing with existing code..."
+else
+    echo "Cloning Hyprpicker repository..."
+    git clone --depth=1 https://github.com/hyprwm/hyprpicker.git "$HYPRPICKER_DIR"
+fi
+
+# Build and install Hyprpicker using AUR approach
+cd "$HYPRPICKER_DIR"
+if [ -f "CMakeLists.txt" ]; then
+    echo "Building Hyprpicker with CMake (AUR-style)..."
+    if cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr && \
+       cmake --build build && \
+       sudo cmake --install build; then
+        echo "Hyprpicker installed successfully"
+        # Install license file (AUR-style)
+        sudo install -Dm644 LICENSE -t /usr/share/licenses/hyprpicker/
+    else
+        echo "Warning: Hyprpicker installation failed"
+        # Try alternative build method if CMake fails
+        if [ -f "meson.build" ]; then
+            echo "Trying Meson build for Hyprpicker..."
+            meson setup build --prefix=/usr --buildtype=release && \
+            ninja -C build && \
+            sudo ninja -C build install && \
+            echo "Hyprpicker installed successfully with Meson"
+        fi
+    fi
+else
+    echo "No CMakeLists.txt found for Hyprpicker"
+fi
 
 # --- Install Hyprshot (AUR-style installation) ---
 echo "Installing Hyprshot..."
@@ -312,6 +355,36 @@ fi
 # --- Final steps ---
 echo "Finalizing installation..."
 
+# Verify critical components
+echo "Verifying installation..."
+MISSING_COMPONENTS=()
+
+# Check if Hyprshot was installed
+if [ ! -f "$HOME/.local/bin/hyprshot" ]; then
+    MISSING_COMPONENTS+=("Hyprshot")
+fi
+
+# Check if Hyprpicker is available
+if ! command -v hyprpicker >/dev/null 2>&1; then
+    MISSING_COMPONENTS+=("Hyprpicker")
+fi
+
+# Check if Ax-Shell was cloned
+if [ ! -d "$INSTALL_DIR" ]; then
+    MISSING_COMPONENTS+=("Ax-Shell")
+fi
+
+# Check if fonts were installed
+if [ ! -f "$HOME/.fonts/SymbolsNerdFont-Regular.ttf" ]; then
+    MISSING_COMPONENTS+=("Nerd Fonts")
+fi
+
+if [ ${#MISSING_COMPONENTS[@]} -eq 0 ]; then
+    echo "All critical components installed successfully!"
+else
+    echo "Warning: The following components failed to install: ${MISSING_COMPONENTS[*]}"
+fi
+
 # Try to run configuration if Ax-Shell is available
 if [ -f "$INSTALL_DIR/config/config.py" ]; then
     echo "Running Ax-Shell configuration..."
@@ -337,7 +410,7 @@ echo ""
 echo "Ax-Shell (Quiet fork) has been installed to: $INSTALL_DIR"
 echo ""
 echo "All components installed:"
-echo "✅ Hyprpicker (from PikaOS repo)"
+echo "✅ Hyprpicker (built from latest source)"
 echo "✅ Hyprshot (screenshot tool)"
 echo "✅ Hyprsunset (blue light filter)"
 echo "✅ Hypridle & Hyprlock"
@@ -351,6 +424,7 @@ echo "Next steps:"
 echo "1. Restart your terminal or run: source ~/.bashrc"
 echo "2. Start Ax-Shell manually: python3 $INSTALL_DIR/main.py"
 echo "3. Test Hyprshot: hyprshot --help"
+echo "4. Test Hyprpicker: hyprpicker --help"
 echo ""
 echo "Enjoy using Ax-Shell! 🚀"
 echo "=============================================="
