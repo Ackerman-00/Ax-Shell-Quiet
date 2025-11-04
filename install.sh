@@ -44,6 +44,10 @@ PACKAGES=(
     gir1.2-vte-2.91
     webp-pixbuf-loader
     wl-clipboard
+    # Additional dependencies for Hyprshot and other tools
+    jq
+    grim
+    slurp
 )
 
 # Python packages for PikaOS
@@ -144,29 +148,35 @@ else
     git clone --depth=1 https://github.com/hyprwm/hyprpicker.git "$HYPRPICKER_DIR"
 fi
 
-# Build and install Hyprpicker to local directory
+# Build and install Hyprpicker using the project's build system
 cd "$HYPRPICKER_DIR"
-make all && sudo make install || {
-    echo "Warning: Hyprpicker build/install failed, continuing..."
-}
+if [ -f "Makefile" ]; then
+    echo "Building Hyprpicker with make..."
+    make && sudo make install || {
+        echo "Warning: Hyprpicker build/install failed, continuing..."
+    }
+else
+    echo "No Makefile found for Hyprpicker"
+fi
 
 echo "Hyprpicker installation attempted."
 
-# --- Install Hyprshot from Source ---
-echo "Installing Hyprshot from source..."
+# --- Install Hyprshot (AUR-style installation) ---
+echo "Installing Hyprshot..."
 
-HYPRSHOT_DIR="$HOME/.local/src/Hyprshot"
+HYPRSHOT_DIR="$HOME/.local/src/hyprshot"
 if [ -d "$HYPRSHOT_DIR" ]; then
     echo "Updating Hyprshot repository..."
     git -C "$HYPRSHOT_DIR" pull || echo "Git pull failed, continuing with existing code..."
 else
     echo "Cloning Hyprshot repository..."
-    git clone --depth=1 https://github.com/Gustash/hyprshot.git "$HYPRSHOT_DIR"
+    git clone --depth=1 https://github.com/Gustash/Hyprshot.git "$HYPRSHOT_DIR"
 fi
 
-# Create symlink in local bin directory
-cp "$HYPRSHOT_DIR/hyprshot" "$HOME/.local/bin/hyprshot"
-chmod +x "$HOME/.local/bin/hyprshot"
+# AUR-style installation - just copy the script and make it executable
+echo "Installing Hyprshot script..."
+mkdir -p "$HOME/.local/bin"
+install -Dm755 "$HYPRSHOT_DIR/hyprshot" "$HOME/.local/bin/hyprshot"
 
 echo "Hyprshot has been installed to $HOME/.local/bin/hyprshot"
 
@@ -184,11 +194,15 @@ fi
 
 # Build and install Hyprsunset
 cd "$HYPRSUNSET_DIR"
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release && \
-cmake --build build && \
-sudo cmake --install build || {
-    echo "Warning: Hyprsunset build/install failed, continuing..."
-}
+if [ -f "meson.build" ]; then
+    meson setup build --buildtype=release && \
+    ninja -C build && \
+    sudo ninja -C build install || {
+        echo "Warning: Hyprsunset build/install failed, continuing..."
+    }
+else
+    echo "No meson.build found for Hyprsunset"
+fi
 
 echo "Hyprsunset installation attempted."
 
@@ -206,10 +220,15 @@ fi
 
 # Build and install Gray
 cd "$GRAY_DIR"
-meson setup --prefix=/usr build . && \
-sudo ninja -C build install || {
-    echo "Warning: Gray build/install failed, continuing..."
-}
+if [ -f "meson.build" ]; then
+    meson setup build --prefix=/usr --buildtype=release && \
+    ninja -C build && \
+    sudo ninja -C build install || {
+        echo "Warning: Gray build/install failed, continuing..."
+    }
+else
+    echo "No meson.build found for Gray"
+fi
 
 echo "Gray installation attempted."
 
@@ -289,6 +308,10 @@ if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
     export PATH="$HOME/.local/bin:$PATH"
 fi
+
+# --- Update font cache again after all font installations ---
+echo "Updating font cache after all font installations..."
+fc-cache -fv
 
 # --- Final steps ---
 echo "Finalizing installation..."
