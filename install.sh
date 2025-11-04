@@ -7,7 +7,7 @@ set -o pipefail  # Prevent errors in a pipeline from being masked
 REPO_URL="https://github.com/Ackerman-00/Ax-Shell-Quiet.git"
 INSTALL_DIR="$HOME/.config/Ax-Shell"
 
-# Package list for PikaOS
+# Package list for PikaOS - Debian package names
 PACKAGES=(
     brightnessctl
     cava
@@ -55,11 +55,11 @@ PACKAGES=(
     imagemagick
     # Gray dependencies
     libdbusmenu-gtk3-dev
-    # Additional Fabric dependencies
-    gtk-layer-shell
-    libdbusmenu-gtk3-4
-    cinnamon-desktop
-    webkit2gtk-4.1
+    # Fabric dependencies (Debian versions)
+    libgtk-layer-shell0
+    libgtk-layer-shell-dev
+    libwebkit2gtk-4.1-0
+    gir1.2-webkit2-4.1
     # Python pip
     python3-pip
 )
