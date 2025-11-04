@@ -55,7 +55,7 @@
 
 **Run the following command in your terminal once logged into Hyprland:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Axenide/Ax-Shell/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Ackerman-00/Ax-Shell-Quiet/main/install.sh | bash
 ```
 
 
