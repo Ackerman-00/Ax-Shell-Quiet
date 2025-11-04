@@ -41,7 +41,7 @@ sudo apt install -y \
 
 # Create necessary directories
 echo "Creating necessary directories..."
-mkdir -p "$HOME/.local/bin" "$HOME/.local/share/fonts"
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/fonts" "$HOME/.local/src"
 
 # Clone or update the repository
 if [ -d "$INSTALL_DIR" ]; then
@@ -52,7 +52,24 @@ else
     git clone --depth=1 "$REPO_URL" "$INSTALL_DIR"
 fi
 
-# Install Fabric GUI framework using --break-system-packages (following original approach)
+# Install uwsm (Wayland session manager) from source
+echo "Installing uwsm from source..."
+UWSM_DIR="$HOME/.local/src/uwsm"
+if [ -d "$UWSM_DIR" ]; then
+    echo "Updating uwsm repository..."
+    cd "$UWSM_DIR" && git pull || true
+else
+    echo "Cloning uwsm repository..."
+    git clone --depth=1 https://github.com/Vladimir-csp/uwsm.git "$UWSM_DIR"
+fi
+
+cd "$UWSM_DIR"
+meson build -Duuctl=enabled -Dfumon=enabled -Duwsm-app=enabled
+meson compile -C build
+sudo meson install -C build
+echo "✅ uwsm installed"
+
+# Install Fabric GUI framework using --break-system-packages
 echo "Installing Fabric GUI framework..."
 pip install --break-system-packages git+https://github.com/Fabric-Development/fabric.git
 
@@ -139,10 +156,10 @@ echo "Running Ax-Shell configuration..."
 cd "$INSTALL_DIR"
 python3 config/config.py
 
-# Start Ax-Shell
+# Start Ax-Shell with uwsm (the proper way)
 echo "Starting Ax-Shell..."
 pkill -f "ax-shell" 2>/dev/null || true
-python3 "$INSTALL_DIR/main.py" > /dev/null 2>&1 &
+uwsm app -- python3 "$INSTALL_DIR/main.py" > /dev/null 2>&1 &
 disown
 
 echo ""
@@ -150,7 +167,7 @@ echo "=============================================="
 echo "🎉 INSTALLATION COMPLETE!"
 echo "=============================================="
 echo ""
-echo "Ax-Shell is now running!"
+echo "Ax-Shell is now running with uwsm!"
 echo ""
 echo "📍 Important locations:"
 echo "   Config: $INSTALL_DIR"
@@ -159,6 +176,12 @@ echo "   Fonts: $HOME/.local/share/fonts"
 echo ""
 echo "🚀 Quick start:"
 echo "   Restart terminal or run: source ~/.bashrc"
-echo "   Start manually: python3 $INSTALL_DIR/main.py"
+echo "   Start manually: uwsm app -- python3 $INSTALL_DIR/main.py"
+echo ""
+echo "🔧 If widgets aren't visible:"
+echo "   1. Check if Hyprland is running properly"
+echo "   2. Ensure ~/.config/hypr/hyprland.conf sources Ax-Shell config"
+echo "   3. Try restarting Hyprland: hyprctl reload"
+echo "   4. Check Ax-Shell logs: python3 $INSTALL_DIR/main.py"
 echo ""
 echo "=============================================="
