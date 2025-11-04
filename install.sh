@@ -63,7 +63,7 @@ echo "=============================================="
 echo "Updating package lists..."
 sudo apt update
 
-# --- FULL DEPENDENCY INSTALLATION (Includes Vte Fix) ---
+# --- FULL DEPENDENCY INSTALLATION (Includes Gray, Vte, and build tools) ---
 echo "Installing core dependencies..."
 sudo apt install -y \
     brightnessctl cava cliphist gobject-introspection gpu-screen-recorder hypridle hyprlock \
@@ -87,7 +87,7 @@ sudo apt install -y \
     libgirepository1.0-dev python3-dev libffi-dev gir1.2-glib-2.0 \
     gir1.2-girepository-2.0 golang-go libpugixml-dev \
     libcvc0t64 gir1.2-cvc-1.0 python3-xdg python3-dbus scdoc \
-    gir1.2-vte-2.91 # <-- NEW: Fixes the Vte namespace crash
+    gir1.2-vte-2.91
 
 # Install remaining dependencies
 echo "Installing specific runtime dependencies..."
@@ -123,8 +123,8 @@ meson compile -C build
 sudo meson install -C build
 echo "✅ uwsm installed"
 
-# --- Install Gray (FIX for 'Namespace Gray not available') ---
-echo "Installing Gray (required for System Tray)..."
+# --- Install Gray (Required for System Tray) ---
+echo "Installing Gray..."
 GRAY_DIR="$HOME/.local/src/gray"
 if [ -d "$GRAY_DIR" ]; then
     echo "Updating Gray repository..."
@@ -159,19 +159,54 @@ else
 fi
 # --- END Install Gray ---
 
-# --- FABRIC CLEANUP AND INSTALLATION FIX (Crucial for PyGObject) ---
+# --- Install fabric-cli (FIX for 'fabric-send: command not found') ---
+echo "Installing fabric-cli..."
+FABRIC_CLI_DIR="$HOME/.local/src/fabric-cli"
+if [ -d "$FABRIC_CLI_DIR" ]; then
+    echo "Updating fabric-cli repository..."
+    cd "$FABRIC_CLI_DIR" && git pull || true
+else
+    echo "Cloning fabric-cli repository..."
+    git clone --depth=1 https://github.com/Fabric-Development/fabric-cli.git "$FABRIC_CLI_DIR"
+fi
+
+# Build fabric-cli using meson
+cd "$FABRIC_CLI_DIR"
+if [ -f "meson.build" ]; then
+    echo "Building fabric-cli with meson..."
+    rm -rf build
+    if meson setup build --prefix=/usr --buildtype=release && \
+       ninja -C build && \
+       sudo ninja -C build install; then
+        echo "✅ fabric-cli installed"
+    else
+        echo "❌ fabric-cli build failed"
+        # Try alternative: check if there's a built binary
+        if [ -f "build/fabric-cli" ]; then
+            sudo cp build/fabric-cli /usr/local/bin/
+            echo "✅ fabric-cli installed manually"
+        fi
+    fi
+else
+    echo "❌ fabric-cli: No meson.build found"
+fi
+# --- END Install fabric-cli ---
+
+# --- FABRIC PYTHON MODULE INSTALLATION ---
 echo "Cleaning up conflicting user-installed Python packages..."
+# Force removal of potentially conflicting local packages
 /usr/bin/env python3 -m pip uninstall -y fabric PyGObject pycairo loguru --break-system-packages 2>/dev/null || true
 
 echo "Installing Fabric GUI framework using --break-system-packages and skipping dependencies..."
+# Install Fabric without dependencies to force it to use the system PyGObject
 /usr/bin/env python3 -m pip install --break-system-packages --no-deps --no-cache-dir git+https://github.com/Fabric-Development/fabric.git
-echo "✅ Fabric installed"
+echo "✅ Fabric Python module installed"
 
 # --- INSTALL MISSING PYTHON DEPENDENCIES (Loguru Fix) ---
 echo "Installing missing Python dependencies (loguru, etc.)..."
 /usr/bin/env python3 -m pip install --break-system-packages --no-cache-dir loguru
 echo "✅ Loguru installed"
-# --- END FABRIC FIX ---
+# --- END FABRIC PYTHON MODULE INSTALLATION ---
 
 
 # Install Hyprshot (simple copy)
@@ -187,6 +222,7 @@ chmod +x "$HOME/.local/bin/hyprshot"
 echo "✅ Hyprshot installed"
 
 # --- Install Fonts ---
+# ... (Font installation section remains the same) ...
 echo "Installing fonts..."
 
 # 1. Zed Sans Fonts
@@ -240,8 +276,9 @@ fi
 # Update font cache
 fc-cache -fv
 echo "✅ Fonts installation completed"
+# --- END Install Fonts ---
 
-# --- PYTHON CODE FIXES (Crucial for launch) ---
+# --- PYTHON CODE FIXES ---
 echo "Applying Python import fixes to Ax-Shell source files..."
 # 1. Fix missing NetworkClient import in modules/metrics.py (Line 22)
 fix_python_imports \
@@ -310,10 +347,13 @@ echo "🎉 INSTALLATION COMPLETE!"
 echo "=============================================="
 echo ""
 echo "**Ax-Shell is now running with uwsm!**"
+echo "The fabric-cli utility is now installed for keybinds."
 echo ""
-echo "🔥 **IMPORTANT LAST STEP (Visibility)**:"
-echo "1. Ensure this line is in ~/.config/hypr/hyprland.conf:"
+echo "🔥 **IMPORTANT LAST STEP (Visibility & Binds)**:"
+echo "1. **Visibility:** Ensure this line is in ~/.config/hypr/hyprland.conf:"
 echo "   layerrule = all, fabric"
-echo "2. Then run: **hyprctl reload**"
+echo "2. **Binds:** Update your keybinds to use the correct command (e.g., `fabric-cli` or `fabric-send` if it was symlinked)."
+echo "   Example: `bind = MOD, KEY, exec, fabric-cli 'notch.open_notch(\"dashboard\")'`"
+echo "3. **Reload:** Run: **hyprctl reload**"
 echo ""
 echo "=============================================="
