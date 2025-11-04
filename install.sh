@@ -122,14 +122,59 @@ meson compile -C build
 sudo meson install -C build
 echo "✅ uwsm installed"
 
+# --- Install Gray (FIX for 'Namespace Gray not available') ---
+echo "Installing Gray..."
+GRAY_DIR="$HOME/.local/src/gray"
+if [ -d "$GRAY_DIR" ]; then
+    echo "Updating Gray repository..."
+    cd "$GRAY_DIR" && git pull || true
+else
+    echo "Cloning Gray repository..."
+    git clone --depth=1 https://github.com/Fabric-Development/gray.git "$GRAY_DIR"
+fi
+
+cd "$GRAY_DIR"
+if [ -f "meson.build" ]; then
+    echo "Building Gray..."
+    rm -rf build
+    
+    # Check for valac and dependencies (ensure necessary build tools are available)
+    echo "Checking Gray dependencies..."
+    command -v valac >/dev/null 2>&1 && echo "  ✅ valac found" || echo "  ❌ valac missing (ensure valac is in dependencies)"
+    
+    if meson setup build --prefix=/usr --buildtype=release && \
+       ninja -C build; then
+        # Install files required for GI (GObject Introspection)
+        if sudo ninja -C build install; then
+            echo "✅ Gray installed via ninja"
+        else
+            echo "⚠️ Ninja install failed, trying manual installation..."
+            # Manual copy might be necessary if ninja install fails permissions/paths
+            if [ -f "build/libgray-0.1.so" ]; then
+                sudo cp build/libgray-0.1.so /usr/lib/
+                sudo cp build/libgray-0.1.a /usr/lib/
+                echo "✅ Gray shared libraries copied manually"
+            fi
+        fi
+    else
+        echo "❌ Gray build failed"
+    fi
+else
+    echo "❌ Gray: No meson.build found or build system unsupported."
+fi
+# --- END Install Gray ---
+
 # --- FABRIC CLEANUP AND INSTALLATION FIX (Crucial for PyGObject) ---
 echo "Cleaning up conflicting user-installed Python packages..."
-/usr/bin/env python3 -m pip uninstall -y fabric PyGObject pycairo --break-system-packages 2>/dev/null || true
+# Force removal of potentially conflicting local packages
+/usr/bin/env python3 -m pip uninstall -y fabric PyGObject pycairo loguru --break-system-packages 2>/dev/null || true
 
 echo "Installing Fabric GUI framework using --break-system-packages and skipping dependencies..."
+# Install Fabric without dependencies to force it to use the system PyGObject
 /usr/bin/env python3 -m pip install --break-system-packages --no-deps --no-cache-dir git+https://github.com/Fabric-Development/fabric.git
 echo "✅ Fabric installed"
 
+# --- INSTALL MISSING PYTHON DEPENDENCIES (loguru fix) ---
 echo "Installing missing Python dependencies (loguru, etc.)..."
 /usr/bin/env python3 -m pip install --break-system-packages --no-cache-dir loguru
 echo "✅ Loguru installed"
@@ -211,13 +256,13 @@ echo "✅ Fonts installation completed"
 
 # --- PYTHON CODE FIXES (Crucial for launch) ---
 echo "Applying Python import fixes to Ax-Shell source files..."
-
+# 1. Fix missing NetworkClient import in modules/metrics.py (Line 22)
 fix_python_imports \
     "$INSTALL_DIR/modules/metrics.py" \
     "from services.network import NetworkClient" \
     22
 
-
+# 2. Fix missing NetworkClient import in modules/buttons.py (approx Line 15)
 fix_python_imports \
     "$INSTALL_DIR/modules/buttons.py" \
     "from services.network import NetworkClient" \
