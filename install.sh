@@ -1,13 +1,12 @@
 #!/bin/bash
 
-set -e # Exit immediately if a command fails
-set -o pipefail # Prevent errors in a pipeline from being masked
+set -e 
+set -o pipefail 
 
 REPO_URL="https://github.com/Ackerman-00/Ax-Shell-Quiet.git"
 INSTALL_DIR="$HOME/.config/Ax-Shell"
 
-# --- FIX FUNCTIONS ---
-# Function to automatically fix missing Python imports and indentation errors
+# FIX FUNCTIONS
 fix_python_imports() {
     local file_path="$1"
     local import_line="$2"
@@ -20,22 +19,22 @@ fix_python_imports() {
 
     echo "⚙️ Fixing imports in $file_path..."
     
-    # Check if the line already exists
+
     if grep -qF -- "$import_line" "$file_path"; then
         echo "✅ Import '$import_line' already present in $file_path."
         return
     fi
 
-    # Read all lines into an array
+    
     mapfile -t lines < "$file_path"
     
-    # Check if the target line number is valid
+    
     if [ "$target_line_number" -gt "${#lines[@]}" ]; then
         echo "⚠️ Warning: Target line number $target_line_number exceeds file length in $file_path. Skipping fix."
         return
     fi
 
-    # Determine indentation from the surrounding lines (using spaces)
+    # Determine indentation from the surrounding lines
     local target_index=$((target_line_number - 1))
     local reference_line="${lines[target_index]}"
     local current_indentation=$(echo "$reference_line" | sed 's/\([^[:space:]]\).*//')
@@ -45,16 +44,16 @@ fix_python_imports() {
         local before=("${lines[@]:0:target_index}")
         local after=("${lines[@]:target_index}")
         
-        # Write content back to the file with the new line added and proper indentation
+        
         printf "%s\n" "${before[@]}" > "$file_path"
-        # The added line must be correctly indented (no tabs, just spaces)
+        
         echo "${current_indentation}${import_line}" >> "$file_path"
         printf "%s\n" "${after[@]}" >> "$file_path"
         
         echo "✅ Added '$import_line' to $file_path."
     fi
 }
-# --------------------
+
 
 echo "Starting Ax-Shell installation for PikaOS..."
 echo "=============================================="
@@ -63,7 +62,7 @@ echo "=============================================="
 echo "Updating package lists..."
 sudo apt update
 
-# --- FULL DEPENDENCY INSTALLATION (Includes Gray, Vte, and build tools) ---
+# FULL DEPENDENCY INSTALLATION
 echo "Installing core dependencies..."
 sudo apt install -y \
     brightnessctl cava cliphist gobject-introspection gpu-screen-recorder hypridle hyprlock \
@@ -106,7 +105,7 @@ else
     git clone --depth=1 "$REPO_URL" "$INSTALL_DIR"
 fi
 
-# Install uwsm (Wayland session manager) from source
+# Install uwsm
 echo "Installing uwsm from source..."
 UWSM_DIR="$HOME/.local/src/uwsm"
 if [ -d "$UWSM_DIR" ]; then
@@ -123,7 +122,7 @@ meson compile -C build
 sudo meson install -C build
 echo "✅ uwsm installed"
 
-# --- Install Gray (Required for System Tray) ---
+# Install Gray
 echo "Installing Gray..."
 GRAY_DIR="$HOME/.local/src/gray"
 if [ -d "$GRAY_DIR" ]; then
@@ -157,9 +156,8 @@ if [ -f "meson.build" ]; then
 else
     echo "❌ Gray: No meson.build found or build system unsupported."
 fi
-# --- END Install Gray ---
 
-# --- Install fabric-cli (FIX for 'fabric-send: command not found') ---
+# Install fabric-cli
 echo "Installing fabric-cli..."
 FABRIC_CLI_DIR="$HOME/.local/src/fabric-cli"
 if [ -d "$FABRIC_CLI_DIR" ]; then
@@ -190,26 +188,25 @@ if [ -f "meson.build" ]; then
 else
     echo "❌ fabric-cli: No meson.build found"
 fi
-# --- END Install fabric-cli ---
 
-# --- FABRIC PYTHON MODULE INSTALLATION ---
+
+# FABRIC PYTHON MODULE INSTALLATION
 echo "Cleaning up conflicting user-installed Python packages..."
-# Force removal of potentially conflicting local packages
+
 /usr/bin/env python3 -m pip uninstall -y fabric PyGObject pycairo loguru --break-system-packages 2>/dev/null || true
 
 echo "Installing Fabric GUI framework using --break-system-packages and skipping dependencies..."
-# Install Fabric without dependencies to force it to use the system PyGObject
+
 /usr/bin/env python3 -m pip install --break-system-packages --no-deps --no-cache-dir git+https://github.com/Fabric-Development/fabric.git
 echo "✅ Fabric Python module installed"
 
-# --- INSTALL MISSING PYTHON DEPENDENCIES (Loguru Fix) ---
+# INSTALL MISSING PYTHON DEPENDENCIES
 echo "Installing missing Python dependencies (loguru, etc.)..."
 /usr/bin/env python3 -m pip install --break-system-packages --no-cache-dir loguru
 echo "✅ Loguru installed"
-# --- END FABRIC PYTHON MODULE INSTALLATION ---
 
 
-# Install Hyprshot (simple copy)
+# Install Hyprshot
 echo "Installing Hyprshot..."
 HYPRSHOT_DIR="$HOME/.local/src/hyprshot"
 if [ -d "$HYPRSHOT_DIR" ]; then
@@ -221,8 +218,8 @@ cp "$HYPRSHOT_DIR/hyprshot" "$HOME/.local/bin/hyprshot"
 chmod +x "$HOME/.local/bin/hyprshot"
 echo "✅ Hyprshot installed"
 
-# --- Install Fonts ---
-# ... (Font installation section remains the same) ...
+# Install Fonts
+
 echo "Installing fonts..."
 
 # 1. Zed Sans Fonts
@@ -276,22 +273,21 @@ fi
 # Update font cache
 fc-cache -fv
 echo "✅ Fonts installation completed"
-# --- END Install Fonts ---
 
-# --- PYTHON CODE FIXES ---
+
+# PYTHON CODE FIXES
 echo "Applying Python import fixes to Ax-Shell source files..."
-# 1. Fix missing NetworkClient import in modules/metrics.py (Line 22)
+
 fix_python_imports \
     "$INSTALL_DIR/modules/metrics.py" \
     "from services.network import NetworkClient" \
     22
 
-# 2. Fix missing NetworkClient import in modules/buttons.py (approx Line 15)
+# 2. Fix missing NetworkClient import in modules/buttons.py
 fix_python_imports \
     "$INSTALL_DIR/modules/buttons.py" \
     "from services.network import NetworkClient" \
     15
-# --- END PYTHON CODE FIXES ---
 
 
 # Network services handling
@@ -335,7 +331,7 @@ echo "Running Ax-Shell configuration..."
 cd "$INSTALL_DIR"
 python3 config/config.py
 
-# Start Ax-Shell with uwsm (the proper way)
+# Start Ax-Shell with uwsm
 echo "Starting Ax-Shell..."
 pkill -f "ax-shell" 2>/dev/null || true
 uwsm app -- python3 "$INSTALL_DIR/main.py" > /dev/null 2>&1 &
